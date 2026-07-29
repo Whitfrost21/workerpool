@@ -7,14 +7,14 @@ import (
 )
 
 type Job struct {
-	ID   int
+	ID   string
 	Task func(ctx context.Context) (any, error)
 }
 
 type Result struct {
-	JobID int
-	Value any
-	Err   error
+	JobID string
+	value any
+	err   error
 }
 
 type Pool struct {
@@ -50,7 +50,7 @@ func (p *Pool) worker(ctx context.Context) {
 				return // no more jobs in channel
 			}
 			value, err := job.Task(ctx)
-			p.results <- Result{JobID: job.ID, Value: value, Err: err}
+			p.results <- Result{JobID: job.ID, value: value, err: err}
 
 		case <-ctx.Done():
 			return
@@ -68,20 +68,21 @@ func (p *Pool) Shutdown() {
 	close(p.results)
 }
 
-func (p *Pool) Drain() {
+func (p *Pool) Drain(cacheActor *CacheActor[string, any]) {
 	p.drainwg.Add(1)
-	go p.drain()
+	go p.drain(cacheActor)
 }
 
-func (p *Pool) drain() {
+func (p *Pool) drain(cacheActor *CacheActor[string, any]) {
 	defer p.drainwg.Done()
 
 	for r := range p.results {
-		if r.Err != nil {
-			log.Printf("job %d failed %v", r.JobID, r.Err)
+		if r.err != nil {
+			log.Printf("job %s failed %v", r.JobID, r.err)
 			continue
 		}
-		log.Printf("job %d done: %v", r.JobID, r.Value)
+		cacheActor.Set(r.JobID, r.value)
+		log.Printf("job %s done: %v", r.JobID, r.value)
 	}
 }
 
