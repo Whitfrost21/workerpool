@@ -75,8 +75,8 @@ func (p *Pool) Drain(cacheActor *CacheActor[string, any]) {
 
 func (p *Pool) drain(cacheActor *CacheActor[string, any]) {
 	defer p.drainwg.Done()
-
 	for r := range p.results {
+		defer cacheActor.Release(r.JobID) //release the inflight after job finishes
 		if r.err != nil {
 			log.Printf("job %s failed %v", r.JobID, r.err)
 			continue

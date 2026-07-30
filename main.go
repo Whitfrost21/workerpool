@@ -48,12 +48,13 @@ func main() {
 
 		key := hashline(line)
 
-		if val, found := cacheActor.Get(key); found {
-			log.Printf("cache line hit for %q:%v (skipping it)", line, val)
+		//check if key's already cached or inflight(just for frequent repeatation)
+		if !cacheActor.Tryclaim(key) {
+			log.Printf("cache line hit for %q (skipping it)", line)
 			continue
 		}
 		pool.Submit(workerpool.Job{ID: key, Task: makeparseline(line)})
-		time.Sleep(1 * time.Second)
+		// time.Sleep(1 * time.Second)
 	}
 	pool.Shutdown()
 	// time.Sleep(1 * time.Second)
