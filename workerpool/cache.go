@@ -62,17 +62,17 @@ func (c *CacheActor[k, v]) run() {
 		case req := <-c.setreq: //retrives (key,value)from channel
 			c.cache.Put(req.key, req.value) //store (key,value) in cache
 
-		case req := <-c.claimReqs:
-			_, cached := c.cache.Get(req.key)
-			_, inflight := c.inflight[req.key]
+		case req := <-c.claimReqs: //retirves incoming claims (key,resp)
+			_, cached := c.cache.Get(req.key)  //is cached?
+			_, inflight := c.inflight[req.key] //is inflight?
 			if cached || inflight {
 				req.resp <- false
 				continue
 			}
-			c.inflight[req.key] = struct{}{}
+			c.inflight[req.key] = struct{}{} // mark inflight
 			req.resp <- true
 
-		case key := <-c.releasereq:
+		case key := <-c.releasereq: //remove inflight
 			delete(c.inflight, key)
 		}
 	}
@@ -93,7 +93,7 @@ func (c *CacheActor[k, v]) Set(key k, value v) {
 
 func (c *CacheActor[k, v]) Tryclaim(key k) bool {
 	resp := make(chan bool)
-	c.claimReqs <- claimRequest[k]{key: key, resp: resp}
+	c.claimReqs <- claimRequest[k]{key: key, resp: resp} //push key and resp to claim channel
 	return <-resp
 }
 

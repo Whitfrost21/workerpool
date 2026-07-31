@@ -33,6 +33,7 @@ func Newpool(numworkers, queuesize int) *Pool {
 	}
 }
 
+// start all the workers one by one
 func (p *Pool) Start(ctx context.Context) {
 	for i := 0; i < p.numworkers; i++ {
 		p.wg.Add(1)
@@ -63,29 +64,30 @@ func (p *Pool) Submit(j Job) {
 }
 
 func (p *Pool) Shutdown() {
-	close(p.jobs)
-	p.wg.Wait()
-	close(p.results)
+	close(p.jobs)    //close jobs channel so no jobs can be added
+	p.wg.Wait()      //wait until all worker's finish
+	close(p.results) //close results channel
 }
 
 func (p *Pool) Drain(cacheActor *CacheActor[string, any]) {
-	p.drainwg.Add(1)
+	p.drainwg.Add(1) //signal before starting the drainer routine
 	go p.drain(cacheActor)
 }
 
 func (p *Pool) drain(cacheActor *CacheActor[string, any]) {
-	defer p.drainwg.Done()
+	defer p.drainwg.Done() //signal finish
 	for r := range p.results {
 		defer cacheActor.Release(r.JobID) //release the inflight after job finishes
 		if r.err != nil {
 			log.Printf("job %s failed %v", r.JobID, r.err)
 			continue
 		}
-		cacheActor.Set(r.JobID, r.value)
+		cacheActor.Set(r.JobID, r.value) //include result in cache
 		log.Printf("job %s done: %v", r.JobID, r.value)
 	}
 }
 
+// wait helper for drainer waiting until all jobs finish
 func (p *Pool) WaitDrain() {
 	p.drainwg.Wait()
 }

@@ -1,3 +1,6 @@
+// This is LRU cache implementation used with sentinals
+//(which means head and tails are non-null nodes) for faster and better caching
+
 package lru
 
 type Node[k comparable, v any] struct {
